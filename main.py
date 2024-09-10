@@ -7,6 +7,7 @@ from glob import glob
 import pandas as pd
 
 # Import Functions
+from soca_cfar import soca_code
 from dbscan import dbscan_callback
 from contour_drawing import contour_drawing
 from convex_hull import convex_hull
@@ -19,6 +20,8 @@ from video_writer import video_writer
 
 def main():
     trial = cv2.imread('/home/t1/Desktop/0001image.png')
+    soca_trial = cv2.imread('/home/t1/Desktop/soca_test.png')
+    soca_code(soca_trial)
     dbscan_callback(img=trial)
     convex_hull(trial)
     shortest_distance(trial)
