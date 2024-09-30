@@ -2,11 +2,13 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import math
+import os
+import time
 
 from scipy.optimize import root
+from skimage.measure import block_reduce
 
 def soca(img, train_hs, guard_hs, tau):
-  print(train_hs)
   """
   Implements Sum-Oriented Constant Amplitude filter based on NumPy.
 
@@ -41,6 +43,63 @@ def soca(img, train_hs, guard_hs, tau):
       ret[row, col] = (tau * sum_train / train_hs)
 
   return ret
+
+def soca_new(img, train_hs, guard_hs, tau):
+  start_time = time.time()
+  img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img
+  blurred_image = cv2.GaussianBlur(img_gray, (5, 5), 0)
+  denoised_image = cv2.fastNlMeansDenoising(img_gray, h=200)
+  
+  max_pooled_image = block_reduce(denoised_image, (2,2),np.max)
+
+  integral_image = cv2.integral(max_pooled_image)
+
+  # Remove 1st row and 1st column
+  trimmed_image = integral_image[1:,1:]
+
+  rows, cols = trimmed_image.shape
+  ret = np.zeros((rows, cols), dtype=np.uint8)
+
+  for col in range(train_hs + guard_hs, cols - train_hs - guard_hs):
+    for row in range(train_hs + guard_hs, rows - train_hs - guard_hs):
+      
+      leading_guard = calc_rect_sum(trimmed_image,
+                                    row - guard_hs, col - guard_hs,
+                                    guard_hs, 2*guard_hs + 1)
+      leading_sum = calc_rect_sum(trimmed_image,
+                                  row - guard_hs - train_hs, col - guard_hs - train_hs,
+                                  guard_hs + train_hs, 2*guard_hs + 2*train_hs + 1)
+      leading_train = leading_sum - leading_guard
+      
+      lagging_guard = calc_rect_sum(trimmed_image,
+                                    row - guard_hs, col + 1,
+                                    guard_hs, 2*guard_hs + 1)
+      lagging_sum = calc_rect_sum(trimmed_image,
+                                  row - guard_hs - train_hs, col + 1,
+                                  guard_hs + train_hs, 2*guard_hs + 2*train_hs + 1)
+      lagging_train = lagging_sum - lagging_guard 
+      sum_train = np.min([leading_train, lagging_train])
+      total_train_cells = train_hs*(2*train_hs + 2*guard_hs + 1)
+      ret[row, col] = (tau * sum_train / total_train_cells)
+  print(f"soca_new duration: {time.time() - start_time}")
+
+  return ret
+
+def calc_rect_sum(integral, x,y,w,h):
+  """
+   Calculate the block sum of an integral image
+
+   Args:
+    integral: the integral image to calculate rectangular sum
+    x: upperleft x_coordinate, heading downwards for images
+    y: upperleft y_coordinate, heading rightwards for images
+    w: width
+    h: height
+
+   Returns:
+    Sum of the rectangular block in integral image
+  """
+  return integral[x+h-1,y+w-1] - integral[x-1,y+w-1] - integral[x+h-1,y-1] + integral[x-1,y-1]
 
 def goca(img, train_hs, guard_hs, tau):
   """
@@ -109,7 +168,7 @@ class CFAR(object):
           }
           self.detector = {
               
-              "SOCA": soca,
+              "SOCA": soca_new,
               "GOCA": goca,
           
           }
@@ -178,159 +237,42 @@ class CFAR(object):
           #mat=np.pad(mat, pad_width=pad_width, mode='constant', constant_values=0)
           return self.detector[alg](mat, *self.params[alg])
 
-def soca_code(soca_trial):
+def soca_code(soca_trial, ntc, ngc, pfa):
 
   # img_gray=cv2.imread("test.png",0)
   img = soca_trial
-  cfar_obj=CFAR(26,10,0.975) 
+  cfar_obj = CFAR(ntc,ngc,pfa) 
 
-  cfar_result=cfar_obj.detect(img,alg="SOCA")
-  cv2.imshow('Soca', cfar_result*255)
+  cfar_result = cfar_obj.detect(img,alg="SOCA")
 
-# import numpy as np
-# import matplotlib.pyplot as plt
+  del cfar_obj
 
-# import pywt
-# import pywt.data
-
-# # Wavelet transform of image, and plot approximation and details
-# titles = ['Approximation', ' Horizontal detail',
-#         'Vertical detail', 'Diagonal detail']
-# coeffs2 = pywt.dwt2(img_gray, 'bior1.3')
-# LL, (LH, HL, HH) = coeffs2
-# fig = plt.figure(figsize=(12, 3))
-# for i, a in enumerate([LL, LH, HL, HH]):
-#     ax = fig.add_subplot(1, 4, i + 1)
-#     ax.imshow(a, interpolation="nearest", cmap=plt.cm.gray)
-#     ax.set_title(titles[i], fontsize=10)
-#     ax.set_xticks([])
-#     ax.set_yticks([])
-# fig.tight_layout()
-
-# # Erosion with rectangular kernel
-# import matplotlib.pyplot as plt
-# from skimage.feature import hog
-# from skimage import color, exposure
-# import numpy as np
-
-# kernel = np.ones((5, 5), np.uint8)
-# rec_erosion = cv2.erode(img_gray, kernel, iterations=1)
-
-# fd, hog_image = hog(rec_erosion*cfar_result, orientations=8, pixels_per_cell=(16, 16),
-#                     cells_per_block=(1, 1), visualize=True)
-
-# fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 15), sharex=True, sharey=True)
-
-# ax1.axis('off')
-# ax1.imshow(rec_erosion*cfar_result, cmap=plt.cm.gray)
-# ax1.set_title('Input image')
-
-# # Rescale histogram for better display
-# hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
-
-# ax2.axis('off')
-# ax2.imshow(hog_image_rescaled, cmap=plt.cm.gray)
-# ax2.set_title('Histogram of Oriented Gradients')
-# plt.show()
-
-# # Erosion with eliptical kernel
-
-# kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (8, 8))
-# elip_erosion = cv2.erode(img_gray, kernel, iterations=1)
-
-# fd, hog_image = hog(elip_erosion*cfar_result, orientations=8, pixels_per_cell=(16, 16),
-#                     cells_per_block=(1, 1), visualize=True)
-
-# fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 15), sharex=True, sharey=True)
-
-# ax1.axis('off')
-# ax1.imshow(elip_erosion*cfar_result, cmap=plt.cm.gray)
-# ax1.set_title('Input image')
-
-# # Rescale histogram for better display
-# hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
-
-# ax2.axis('off')
-# ax2.imshow(hog_image_rescaled, cmap=plt.cm.gray)
-# ax2.set_title('Histogram of Oriented Gradients')
-# plt.show()
-
-# # Erosion with Cross-Shaped kernel
-
-# kernel = cv2.getStructuringElement(cv2.MORPH_CROSS, (5, 5))
-# cross_erosion = cv2.erode(img_gray, kernel, iterations=1)
-
-# fd, hog_image = hog(cross_erosion*cfar_result, orientations=8, pixels_per_cell=(16, 16),
-#                     cells_per_block=(1, 1), visualize=True)
-
-# fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 15), sharex=True, sharey=True)
-
-# ax1.axis('off')
-# ax1.imshow(cross_erosion*cfar_result, cmap=plt.cm.gray)
-# ax1.set_title('Input image')
-
-# # Rescale histogram for better display
-# hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
-
-# ax2.axis('off')
-# ax2.imshow(hog_image_rescaled, cmap=plt.cm.gray)
-# ax2.set_title('Histogram of Oriented Gradients')
-# plt.show()
-
-# # Normal Erosion
-
-# import matplotlib.pyplot as plt
-# from skimage.feature import hog
-# from skimage import color, exposure
-# import numpy as np
+  return cfar_result*255
 
 
-# kernel = np.array([[0, 1, 0, 0, 0],
-#                    [1, 0, 1, 0, 0],
-#                    [0, 1, 1, 0, 0],
-#                    [0, 0, 0, 0, 0],
-#                    [1, 1, 1, 1, 1]], np.uint8)
-# erosion = cv2.erode(img_gray,kernel,iterations = 1)
+if __name__ == "__main__":
+  path = "/home/trgknng/2023_UWR/Analysis/raw_data/26Jan/FLS/fls_images_polar"
+  image_name = "1706238550866219979.png"
+  image_path = os.path.join(path,image_name)
+  
+  image = cv2.imread(image_path)
 
+  if image is None:
+     print("Error importing image")
+     exit()
 
-# fd, hog_image = hog(erosion*cfar_result, orientations=8, pixels_per_cell=(16, 16),
-#                     cells_per_block=(1, 1), visualize=True)
-
-# fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 15), sharex=True, sharey=True)
-
-# ax1.axis('off')
-# ax1.imshow(erosion*cfar_result, cmap=plt.cm.gray)
-# ax1.set_title('Input image')
-
-# # Rescale histogram for better display
-# hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
-
-# ax2.axis('off')
-# ax2.imshow(hog_image_rescaled, cmap=plt.cm.gray)
-# ax2.set_title('Histogram of Oriented Gradients')
-# plt.show()
-
-
-# # histogram
-
-# import matplotlib.pyplot as plt
-# from skimage.feature import hog
-# from skimage import color, exposure
-# import numpy as np
-
-# fd, hog_image = hog(img_gray, orientations=8, pixels_per_cell=(16, 16),
-#                     cells_per_block=(1, 1), visualize=True)
-
-# fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 15), sharex=True, sharey=True)
-
-# ax1.axis('off')
-# ax1.imshow(img_gray, cmap=plt.cm.gray)
-# ax1.set_title('Input image')
-
-# # Rescale histogram for better display
-# hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
-
-# ax2.axis('off')
-# ax2.imshow(hog_image_rescaled, cmap=plt.cm.gray)
-# ax2.set_title('Histogram of Oriented Gradients')
-# plt.show()
+  # Optimal parameters up to this point: 12, 4, 0.97
+  # ntc_list = [4,6,8,10,12,14,16,18,20] 
+  # ngc_list = [4,6,8,10,12,14,16,18,20] 
+  ngc = 4
+  ntc = 12
+  pfa = 0.97
+  result_filename = f"cfar_results/{int(ntc)}_{int(ngc)}_{int(pfa*1000)}.png"
+  result_path = os.path.join(os.getcwd(),result_filename)
+  print(result_path)
+  result = soca_code(image, ntc, ngc, pfa)
+  # cv2.imwrite(result_path,result)
+  # cv2.imshow("original image", image)
+  cv2.imshow('SOCA_CFAR', result)
+  cv2.waitKey(0)
+  cv2.destroyAllWindows()

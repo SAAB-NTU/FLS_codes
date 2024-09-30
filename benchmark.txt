@@ -1,0 +1,37 @@
+/home/trgknng/FLS_codes/cfar_results/4_4_970.png
+soca_new duration: 0.4550340175628662
+/home/trgknng/FLS_codes/cfar_results/6_4_970.png
+soca_new duration: 0.4530372619628906
+/home/trgknng/FLS_codes/cfar_results/8_4_970.png
+soca_new duration: 0.4233255386352539
+/home/trgknng/FLS_codes/cfar_results/10_4_970.png
+soca_new duration: 0.4356503486633301
+/home/trgknng/FLS_codes/cfar_results/12_4_970.png
+soca_new duration: 0.4145162105560303
+/home/trgknng/FLS_codes/cfar_results/14_4_970.png
+soca_new duration: 0.4098398685455322
+/home/trgknng/FLS_codes/cfar_results/16_4_970.png
+soca_new duration: 0.4245743751525879
+/home/trgknng/FLS_codes/cfar_results/18_4_970.png
+soca_new duration: 0.3867306709289551
+/home/trgknng/FLS_codes/cfar_results/20_4_970.png
+soca_new duration: 0.39177417755126953
+
+/home/trgknng/FLS_codes/cfar_results/12_4_970.png
+soca_new duration: 0.44194459915161133
+/home/trgknng/FLS_codes/cfar_results/12_6_970.png
+soca_new duration: 0.41781187057495117
+/home/trgknng/FLS_codes/cfar_results/12_8_970.png
+soca_new duration: 0.43381428718566895
+/home/trgknng/FLS_codes/cfar_results/12_10_970.png
+soca_new duration: 0.4143340587615967
+/home/trgknng/FLS_codes/cfar_results/12_12_970.png
+soca_new duration: 0.41423535346984863
+/home/trgknng/FLS_codes/cfar_results/12_14_970.png
+soca_new duration: 0.3993101119995117
+/home/trgknng/FLS_codes/cfar_results/12_16_970.png
+soca_new duration: 0.4056124687194824
+/home/trgknng/FLS_codes/cfar_results/12_18_970.png
+soca_new duration: 0.3912656307220459
+/home/trgknng/FLS_codes/cfar_results/12_20_970.png
+soca_new duration: 0.3814058303833008
